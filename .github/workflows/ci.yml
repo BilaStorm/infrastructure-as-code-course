@@ -19,13 +19,13 @@ jobs:
           node-version: '18'
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install backend dependencies
-        run: npm ci --prefix apps/backend
+        run: npm install --prefix apps/backend
 
       - name: Install frontend dependencies
-        run: npm ci --prefix apps/frontend
+        run: npm install --prefix apps/frontend
 
       - name: Run backend unit tests
         run: npm test --prefix apps/backend
