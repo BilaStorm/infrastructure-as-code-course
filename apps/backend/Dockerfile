@@ -4,7 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
 
 # Étape 2 : runtime
 FROM node:18-alpine
