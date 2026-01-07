@@ -4,83 +4,87 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  ci:
+  backend:
+    name: Backend - Tests & Lint
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ========================
-      # ===== BACKEND ==========
-      # ========================
-
-      - name: Setup Node for backend
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         working-directory: apps/backend
         run: npm ci
 
-      - name: Lint backend
+      - name: Lint
         working-directory: apps/backend
         run: npm run lint || true
 
-      - name: Test backend
+      - name: Tests
         working-directory: apps/backend
         run: npm test
 
-      # ========================
-      # ===== FRONTEND =========
-      # ========================
+  frontend:
+    name: Frontend - Tests, Lint & Build
+    runs-on: ubuntu-latest
 
-      - name: Setup Node for frontend
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         working-directory: apps/frontend
         run: npm ci
 
-      - name: Lint frontend
+      - name: Lint
         working-directory: apps/frontend
         run: npm run lint || true
 
-      - name: Test frontend
+      - name: Tests
         working-directory: apps/frontend
         run: npm test
 
-      - name: Build frontend
+      - name: Build
         working-directory: apps/frontend
         run: npm run build
 
-      # ========================
-      # ===== DOCKER ===========
-      # ========================
+  docker:
+    name: Docker - Build images
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build backend Docker image
+      - name: Build backend image
         run: docker build -t backend-ci ./apps/backend
 
-      - name: Build frontend Docker image
+      - name: Build frontend image
         run: docker build -t frontend-ci ./apps/frontend
 
-      # ========================
-      # ===== SECURITY =========
-      # ========================
+  security:
+    name: Security - Audit dependencies
+    runs-on: ubuntu-latest
 
-      - name: Audit backend dependencies
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Audit backend
         working-directory: apps/backend
         run: npm audit --audit-level=high || true
 
-      - name: Audit frontend dependencies
+      - name: Audit frontend
         working-directory: apps/frontend
         run: npm audit --audit-level=high || true
