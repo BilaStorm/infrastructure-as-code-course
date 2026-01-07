@@ -9,29 +9,35 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # Backend
+      - name: Setup Node for backend
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-
-      - name: Install root dependencies
-        run: npm install
+          node-version: 18
 
       - name: Install backend dependencies
-        run: npm install --prefix apps/backend
+        working-directory: apps/backend
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: apps/backend
+        run: npm test
+
+      # Frontend
+      - name: Setup Node for frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Install frontend dependencies
-        run: npm install --prefix apps/frontend
+        working-directory: apps/frontend
+        run: npm ci
 
-      - name: Run backend unit tests
-        run: npm test --prefix apps/backend
-
-      - name: Run frontend unit tests
-        run: npm test --prefix apps/frontend
-
-      - name: Run npm audit
-        run: npm audit || true
+      - name: Run frontend tests
+        working-directory: apps/frontend
+        run: npm test
