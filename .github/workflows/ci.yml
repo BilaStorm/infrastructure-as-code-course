@@ -9,22 +9,17 @@ jobs:
   backend:
     name: Backend - Tests & Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-
       - name: Install dependencies
         working-directory: apps/backend
         run: npm ci
-
       - name: Lint
         working-directory: apps/backend
         run: npm run lint || true
-
       - name: Tests
         working-directory: apps/backend
         run: npm test
@@ -32,59 +27,61 @@ jobs:
   frontend:
     name: Frontend - Tests, Lint & Build
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install dependencies
         working-directory: apps/frontend
         run: npm ci
-
       - name: Lint
         working-directory: apps/frontend
         run: npm run lint || true
-
       - name: Tests
         working-directory: apps/frontend
         run: npm test
-
       - name: Build
         working-directory: apps/frontend
         run: npm run build
 
   docker:
-    name: Docker - Build images
+    name: Docker - Build & Push to ACR
     runs-on: ubuntu-latest
     needs: [backend, frontend]
-
     steps:
       - uses: actions/checkout@v4
 
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
       - name: Build backend image
-        run: docker build -t backend-ci ./apps/backend
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:latest ./apps/backend
 
       - name: Build frontend image
-        run: docker build -t frontend-ci ./apps/frontend
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:latest ./apps/frontend
+
+      - name: Push backend image
+        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:latest
+
+      - name: Push frontend image
+        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:latest
 
   security:
     name: Security - Audit dependencies
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Audit backend
         working-directory: apps/backend
         run: npm audit --audit-level=high || true
-
       - name: Audit frontend
         working-directory: apps/frontend
         run: npm audit --audit-level=high || true
