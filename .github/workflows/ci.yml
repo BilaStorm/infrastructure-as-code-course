@@ -7,14 +7,17 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Backend
+      # ========================
+      # ===== BACKEND ==========
+      # ========================
+
       - name: Setup Node for backend
         uses: actions/setup-node@v4
         with:
@@ -24,11 +27,18 @@ jobs:
         working-directory: apps/backend
         run: npm ci
 
-      - name: Run backend tests
+      - name: Lint backend
+        working-directory: apps/backend
+        run: npm run lint || true
+
+      - name: Test backend
         working-directory: apps/backend
         run: npm test
 
-      # Frontend
+      # ========================
+      # ===== FRONTEND =========
+      # ========================
+
       - name: Setup Node for frontend
         uses: actions/setup-node@v4
         with:
@@ -38,6 +48,39 @@ jobs:
         working-directory: apps/frontend
         run: npm ci
 
-      - name: Run frontend tests
+      - name: Lint frontend
+        working-directory: apps/frontend
+        run: npm run lint || true
+
+      - name: Test frontend
         working-directory: apps/frontend
         run: npm test
+
+      - name: Build frontend
+        working-directory: apps/frontend
+        run: npm run build
+
+      # ========================
+      # ===== DOCKER ===========
+      # ========================
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        run: docker build -t backend-ci ./apps/backend
+
+      - name: Build frontend Docker image
+        run: docker build -t frontend-ci ./apps/frontend
+
+      # ========================
+      # ===== SECURITY =========
+      # ========================
+
+      - name: Audit backend dependencies
+        working-directory: apps/backend
+        run: npm audit --audit-level=high || true
+
+      - name: Audit frontend dependencies
+        working-directory: apps/frontend
+        run: npm audit --audit-level=high || true
