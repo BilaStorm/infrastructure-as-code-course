@@ -45,10 +45,12 @@ jobs:
         working-directory: apps/frontend
         run: npm run build
 
-  docker:
-    name: Docker - Build & Push to ACR
+  docker_and_version:
+    name: Docker Build & Versioning
     runs-on: ubuntu-latest
     needs: [backend, frontend]
+    outputs:
+      VERSION: ${{ steps.set_version.outputs.VERSION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -74,38 +76,36 @@ jobs:
             VERSION="v$BASE_VERSION"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=VERSION::$VERSION"
 
       - name: Build backend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
         env:
-          VERSION: ${{ env.VERSION }}
+          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Build frontend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
         env:
-          VERSION: ${{ env.VERSION }}
+          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push backend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
         env:
-          VERSION: ${{ env.VERSION }}
+          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push frontend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
         env:
-          VERSION: ${{ env.VERSION }}
+          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
-  versioning:
-    name: Versioning & Git Tag
+  git_tag:
+    name: Git Tag
     runs-on: ubuntu-latest
-    needs: [docker]
+    needs: [docker_and_version]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
       - name: Configure Git
         run: |
           git config user.name "github-actions"
@@ -115,4 +115,4 @@ jobs:
           git tag "$VERSION"
           git push origin "$VERSION"
         env:
-          VERSION: ${{ env.VERSION }}
+          VERSION: ${{ needs.docker_and_version.outputs.VERSION }}
