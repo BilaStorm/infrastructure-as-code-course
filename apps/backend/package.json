@@ -1,10 +1,6 @@
 {
   "name": "backend",
-<<<<<<< HEAD
-  "version": "3.1.1-rc.1",
-=======
-  "version": "3.1.0-SNAPSHOT-snapshot.1",
->>>>>>> develop
+  "version": "3.1.1",
   "private": true,
   "type": "module",
   "main": "src/index.js",
