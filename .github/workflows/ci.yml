@@ -66,6 +66,10 @@ jobs:
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
+<<<<<<< HEAD
+=======
+          
+>>>>>>> main
           if [ "$BRANCH_NAME" = "develop" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
             VERSION="v$BASE_VERSION-SNAPSHOT.$((COUNT+1))"
@@ -75,6 +79,10 @@ jobs:
           else
             VERSION="v$BASE_VERSION"
           fi
+<<<<<<< HEAD
+=======
+          
+>>>>>>> main
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "::set-output name=VERSION::$VERSION"
 
@@ -110,9 +118,21 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+<<<<<<< HEAD
       - name: Create Git Tag
         run: |
           git tag "$VERSION"
           git push origin "$VERSION"
+=======
+      - name: Create Git Tag if not exists
+        run: |
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping tag creation."
+          else
+            echo "Creating Git tag $VERSION"
+            git tag "$VERSION"
+            git push origin "$VERSION"
+          fi
+>>>>>>> main
         env:
           VERSION: ${{ needs.docker_and_version.outputs.VERSION }}
