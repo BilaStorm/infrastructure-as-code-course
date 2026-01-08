@@ -60,6 +60,7 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Set Version
+        id: set_version
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
@@ -76,16 +77,23 @@ jobs:
 
       - name: Build backend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
+        env:
+          VERSION: ${{ env.VERSION }}
 
       - name: Build frontend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
+        env:
+          VERSION: ${{ env.VERSION }}
 
       - name: Push backend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
+        env:
+          VERSION: ${{ env.VERSION }}
 
       - name: Push frontend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
-
+        env:
+          VERSION: ${{ env.VERSION }}
 
   versioning:
     name: Versioning & Git Tag
