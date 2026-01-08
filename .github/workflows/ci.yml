@@ -45,100 +45,10 @@ jobs:
         working-directory: apps/frontend
         run: npm run build
 
-  security:
-    name: Security - Audit dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Audit backend
-        working-directory: apps/backend
-        run: npm audit --audit-level=high || true
-      - name: Audit frontend
-        working-directory: apps/frontend
-        run: npm audit --audit-level=high || true
-
-  versioning:
-    name: Versioning
-    runs-on: ubuntu-latest
-    needs: [backend, frontend]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-      - name: Compute & apply version
-        run: |
-          cd apps/backend
-
-          CURRENT=$(node -p "require('./package.json').version")
-          BASE=$(echo "$CURRENT" | sed -E 's/-snapshot.*//; s/-rc\.[0-9]+//')
-
-          BRANCH="$GITHUB_REF_NAME"
-
-          echo "Current version: $CURRENT"
-          echo "Base version: $BASE"
-          echo "Branch: $BRANCH"
-
-          if [ "$BRANCH" = "develop" ]; then
-            # SNAPSHOT incrémental
-            LAST_TAG=$(git tag --list "v$BASE-snapshot.*" --sort=-v:refname | head -n1)
-            if [ -z "$LAST_TAG" ]; then
-              NEXT=1
-            else
-              LAST_NUM=$(echo "$LAST_TAG" | sed -E "s/.*-snapshot\.([0-9]+)/\1/")
-              NEXT=$((LAST_NUM + 1))
-            fi
-            VERSION="$BASE-snapshot.$NEXT"
-            npm version "$VERSION" --no-git-tag-version
-
-          elif [ "$BRANCH" = "recette" ]; then
-            # RC incrémental
-            LAST_TAG=$(git tag --list "v$BASE-rc.*" --sort=-v:refname | head -n1)
-            if [ -z "$LAST_TAG" ]; then
-              NEXT=1
-            else
-              LAST_NUM=$(echo "$LAST_TAG" | sed -E "s/.*-rc\.([0-9]+)/\1/")
-              NEXT=$((LAST_NUM + 1))
-            fi
-            VERSION="$BASE-rc.$NEXT"
-            npm version "$VERSION" --no-git-tag-version
-
-          elif [ "$BRANCH" = "main" ]; then
-            VERSION="$BASE"
-            npm version "$VERSION"
-
-          fi
-
-          echo "Applied version: $VERSION"
-
-          cd ../frontend
-          npm version "$VERSION" --no-git-tag-version
-          cd ../..
-
-          git add apps/backend/package.json apps/backend/package-lock.json apps/frontend/package.json apps/frontend/package-lock.json
-          git commit -m "chore: bump version to $VERSION" || true
-          git push
-
-          git tag "v$VERSION"
-          git push --tags
-
   docker:
     name: Docker - Build & Push to ACR
     runs-on: ubuntu-latest
-    needs: [versioning]
-
+    needs: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
 
@@ -149,12 +59,52 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build & Push images
+      - name: Set Version
         run: |
-          VERSION=$(node -p "require('./apps/backend/package.json').version")
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
+          if [ "$BRANCH_NAME" = "develop" ]; then
+            COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
+            VERSION="v$BASE_VERSION-SNAPSHOT.$((COUNT+1))"
+          elif [ "$BRANCH_NAME" = "recette" ]; then
+            COUNT=$(git tag -l "v$BASE_VERSION-RC.*" | wc -l)
+            VERSION="v$BASE_VERSION-RC.$((COUNT+1))"
+          else
+            VERSION="v$BASE_VERSION"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-          docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
-          docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
+      - name: Build backend image
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
 
-          docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
-          docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
+      - name: Build frontend image
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
+
+      - name: Push backend image
+        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
+
+      - name: Push frontend image
+        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
+
+
+  versioning:
+    name: Versioning & Git Tag
+    runs-on: ubuntu-latest
+    needs: [docker]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+      - name: Create Git Tag
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+        env:
+          VERSION: ${{ env.VERSION }}
