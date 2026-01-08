@@ -66,6 +66,7 @@ jobs:
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
+          
           if [ "$BRANCH_NAME" = "develop" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
             VERSION="v$BASE_VERSION-SNAPSHOT.$((COUNT+1))"
@@ -75,6 +76,7 @@ jobs:
           else
             VERSION="v$BASE_VERSION"
           fi
+          
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "::set-output name=VERSION::$VERSION"
 
@@ -112,6 +114,7 @@ jobs:
           git config user.email "github-actions@github.com"
       - name: Create Git Tag
         run: |
+          echo "Creating Git tag $VERSION"
           git tag "$VERSION"
           git push origin "$VERSION"
         env:
