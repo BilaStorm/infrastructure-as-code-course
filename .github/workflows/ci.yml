@@ -85,7 +85,9 @@ jobs:
           CURRENT=$(node -p "require('./package.json').version")
           BASE=$(echo "$CURRENT" | sed -E 's/-snapshot.*//; s/-rc\.[0-9]+//')
 
-          BRANCH=$(git branch --show-current)
+          BRANCH="${GITHUB_REF_NAME}"
+
+          echo "Branch is $BRANCH"
 
           if [ "$BRANCH" = "main" ]; then
             npm version patch
@@ -114,6 +116,7 @@ jobs:
 
           git add apps/backend/package.json apps/backend/package-lock.json apps/frontend/package.json apps/frontend/package-lock.json
           git commit -m "chore: bump version to $VERSION" || true
+
           git push
 
           if [ "$BRANCH" = "main" ]; then
