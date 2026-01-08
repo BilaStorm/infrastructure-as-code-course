@@ -60,28 +60,33 @@ jobs:
         with:
           node-version: 20
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
       - name: Determine version
         id: set_version
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
+          BASE_VERSION=$(node -p "require('apps/backend/package.json').version")
 
           if [ "$BRANCH_NAME" = "develop" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
             VERSION="v$BASE_VERSION-SNAPSHOT.$((COUNT+1))"
-            npm version "$VERSION" --no-git-tag-version
+            npm --prefix apps/backend version "$VERSION" --no-git-tag-version
             git add apps/backend/package.json apps/backend/package-lock.json || true
             git commit -m "chore: set SNAPSHOT version $VERSION" || true
           elif [ "$BRANCH_NAME" = "recette" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-RC.*" | wc -l)
             VERSION="v$BASE_VERSION-RC.$((COUNT+1))"
-            npm version "$VERSION" --no-git-tag-version
+            npm --prefix apps/backend version "$VERSION" --no-git-tag-version
             git add apps/backend/package.json apps/backend/package-lock.json || true
             git commit -m "chore: set RC version $VERSION" || true
           else
             # Main → patch automatique
-            npm version patch -m "ci: bump main version %s"
-            VERSION=$(node -p "require('./apps/backend/package.json').version")
+            npm --prefix apps/backend version patch -m "ci: bump main version %s"
+            VERSION=$(node -p "require('apps/backend/package.json').version")
           fi
 
           git push || true
@@ -89,22 +94,22 @@ jobs:
           echo "::set-output name=VERSION::$VERSION"
 
       - name: Build backend image
-        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }} ./apps/backend
         env:
           VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Build frontend image
-        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }} ./apps/frontend
         env:
           VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push backend image
-        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
+        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }}
         env:
           VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push frontend image
-        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
+        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }}
         env:
           VERSION: ${{ steps.set_version.outputs.VERSION }}
 
