@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, recette ]
   pull_request:
 
 jobs:
@@ -85,3 +85,50 @@ jobs:
       - name: Audit frontend
         working-directory: apps/frontend
         run: npm audit --audit-level=high || true
+
+  versioning:
+    name: Versioning by branch
+    runs-on: ubuntu-latest
+    needs: [docker]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Release version on main
+        if: github.ref == 'refs/heads/main'
+        working-directory: apps/backend
+        run: |
+          npm version patch
+          git push
+          git push --tags
+
+      - name: Set SNAPSHOT version on develop
+        if: github.ref == 'refs/heads/develop'
+        working-directory: apps/backend
+        run: |
+          VERSION=$(node -p "require('./package.json').version.replace(/-SNAPSHOT|-RC/, '')")
+          npm version "$VERSION-SNAPSHOT" --no-git-tag-version
+          git add package.json
+          git commit -m "chore: set SNAPSHOT version" || true
+          git push
+
+      - name: Set RC version on recette
+        if: github.ref == 'refs/heads/recette'
+        working-directory: apps/backend
+        run: |
+          VERSION=$(node -p "require('./package.json').version.replace(/-SNAPSHOT|-RC/, '')")
+          npm version "$VERSION-RC" --no-git-tag-version
+          git add package.json
+          git commit -m "chore: set RC version" || true
+          git push
