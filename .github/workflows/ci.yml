@@ -69,6 +69,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -85,12 +86,14 @@ jobs:
           CURRENT=$(node -p "require('./package.json').version")
           BASE=$(echo "$CURRENT" | sed -E 's/-snapshot.*//; s/-rc\.[0-9]+//')
 
-          BRANCH="${GITHUB_REF_NAME}"
+          BRANCH="$GITHUB_REF_NAME"
 
-          echo "Branch is $BRANCH"
+          echo "Current version: $CURRENT"
+          echo "Base version: $BASE"
+          echo "Branch: $BRANCH"
 
           if [ "$BRANCH" = "main" ]; then
-            npm version patch
+            npm version "$BASE"
 
           elif [ "$BRANCH" = "develop" ]; then
             VERSION="$BASE-snapshot"
@@ -119,9 +122,8 @@ jobs:
 
           git push
 
-          if [ "$BRANCH" = "main" ]; then
-            git push --tags
-          fi
+          git tag "v$VERSION"
+          git push --tags
 
   docker:
     name: Docker - Build & Push to ACR
