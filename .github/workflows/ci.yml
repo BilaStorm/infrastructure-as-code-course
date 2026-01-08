@@ -112,10 +112,14 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-      - name: Create Git Tag
+      - name: Create Git Tag if not exists
         run: |
-          echo "Creating Git tag $VERSION"
-          git tag "$VERSION"
-          git push origin "$VERSION"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag $VERSION already exists, skipping tag creation."
+          else
+            echo "Creating Git tag $VERSION"
+            git tag "$VERSION"
+            git push origin "$VERSION"
+          fi
         env:
           VERSION: ${{ needs.docker_and_version.outputs.VERSION }}
