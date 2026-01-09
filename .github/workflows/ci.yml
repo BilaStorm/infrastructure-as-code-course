@@ -53,52 +53,61 @@ jobs:
       VERSION: ${{ steps.set_version.outputs.VERSION }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
       - name: Login to Azure Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ secrets.ACR_REGISTRY }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-      - name: Set Version
+      - name: Determine version
         id: set_version
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
-          
+
           if [ "$BRANCH_NAME" = "develop" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
             VERSION="v$BASE_VERSION-SNAPSHOT.$((COUNT+1))"
+            npm --prefix apps/backend version "$VERSION" --no-git-tag-version
+            git add apps/backend/package.json apps/backend/package-lock.json || true
+            git commit -m "chore: set SNAPSHOT version $VERSION" || true
           elif [ "$BRANCH_NAME" = "recette" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-RC.*" | wc -l)
             VERSION="v$BASE_VERSION-RC.$((COUNT+1))"
+            npm --prefix apps/backend version "$VERSION" --no-git-tag-version
+            git add apps/backend/package.json apps/backend/package-lock.json || true
+            git commit -m "chore: set RC version $VERSION" || true
           else
-            VERSION="v$BASE_VERSION"
+            # Main → patch automatique
+            npm --prefix apps/backend version patch -m "ci: bump main version %s"
+            VERSION=$(node -p "require('./apps/backend/package.json').version")
           fi
-          
+
+          git push || true
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=VERSION::$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build backend image
-        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:$VERSION ./apps/backend
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }} ./apps/backend
 
       - name: Build frontend image
-        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION ./apps/frontend
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
+        run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }} ./apps/frontend
 
       - name: Push backend image
-        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:$VERSION
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
+        run: docker push ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }}
 
       - name: Push frontend image
-        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:$VERSION
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
+        run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }}
 
   git_tag:
     name: Git Tag
