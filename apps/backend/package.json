@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "3.1.1-SNAPSHOT.2",
+  "version": "3.1.1",
   "private": true,
   "type": "module",
   "main": "src/index.js",
