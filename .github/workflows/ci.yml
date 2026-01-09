@@ -73,7 +73,8 @@ jobs:
         id: set_version
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          BASE_VERSION=$(node -p "require('./apps/backend/package.json').version")
+          BASE_VERSION=$(node -p "require('./apps/backend/package.json').version.split('-')[0].replace(/^v/, '')")
+
 
           if [ "$BRANCH_NAME" = "develop" ]; then
             COUNT=$(git tag -l "v$BASE_VERSION-SNAPSHOT.*" | wc -l)
