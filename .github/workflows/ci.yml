@@ -86,7 +86,7 @@ jobs:
           else
             # Main → patch automatique
             npm --prefix apps/backend version patch -m "ci: bump main version %s"
-            VERSION=$(node -p "require('apps/backend/package.json').version")
+            VERSION=$(node -p "require('./apps/backend/package.json').version")
           fi
 
           git push || true
