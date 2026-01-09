@@ -65,6 +65,10 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
+      - name: Login to Azure Container Registry
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
       - name: Determine version
         id: set_version
         run: |
@@ -91,27 +95,19 @@ jobs:
 
           git push || true
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=VERSION::$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build backend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }} ./apps/backend
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Build frontend image
         run: docker build -t ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }} ./apps/frontend
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push backend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/backend:${{ env.VERSION }}
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
       - name: Push frontend image
         run: docker push ${{ secrets.ACR_REGISTRY }}/frontend:${{ env.VERSION }}
-        env:
-          VERSION: ${{ steps.set_version.outputs.VERSION }}
 
   git_tag:
     name: Git Tag
