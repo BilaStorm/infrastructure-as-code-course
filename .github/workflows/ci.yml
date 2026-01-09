@@ -40,7 +40,7 @@ jobs:
         run: npm run lint || true
       - name: Tests
         working-directory: apps/frontend
-        run: npm test
+        run: npm test -- -no-watch 
       - name: Build
         working-directory: apps/frontend
         run: npm run build
